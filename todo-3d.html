@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stack – 3D to-do list</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#e9e6ff;--bg2:#cfe3ff;--ink:#1f1b3a;--muted:#6a6590;--panel:#ffffffcc;--grid:#7b6cf633;
+  --hi:#ff5d47;--hi-e:#c2372a;--md:#ffb627;--md-e:#c4830a;--lo:#3ea6ff;--lo-e:#1f72bd;
+  --done:#9fd9b4;--done-e:#5fa97b;--shadow:#2a1f7a;--field:#fff;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg1:#171433;--bg2:#0e1d3a;--ink:#f1eeff;--muted:#a49fcf;--panel:#26224dcc;--grid:#9d92ff2e;--shadow:#000;--field:#1c1940;--done:#3f7d5c;--done-e:#265039}
+}
+:root[data-theme="dark"]{--bg1:#171433;--bg2:#0e1d3a;--ink:#f1eeff;--muted:#a49fcf;--panel:#26224dcc;--grid:#9d92ff2e;--shadow:#000;--field:#1c1940;--done:#3f7d5c;--done-e:#265039}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100%;font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);
+  background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;overflow-x:hidden}
+/* perspective floor */
+.floor{position:fixed;inset:auto -50% -10% -50%;height:70vh;z-index:0;pointer-events:none;
+  background:linear-gradient(var(--grid) 1px,transparent 1px) 0 0/60px 60px,linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/60px 60px;
+  transform:perspective(500px) rotateX(62deg);transform-origin:50% 100%;
+  -webkit-mask-image:linear-gradient(transparent,#000 60%);mask-image:linear-gradient(transparent,#000 60%)}
+main{position:relative;z-index:1;max-width:620px;margin:0 auto;padding:40px 18px 80px;perspective:1400px}
+header{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:22px}
+h1{margin:0;font-size:clamp(44px,11vw,72px);font-weight:800;line-height:.9;letter-spacing:-.04em;
+  transform:rotateX(14deg) rotateY(-10deg);transform-origin:left bottom;transform-style:preserve-3d;
+  text-shadow:1px 1px 0 var(--hi),2px 2px 0 var(--hi),3px 3px 0 var(--hi-e),4px 4px 0 var(--hi-e),5px 5px 0 var(--hi-e),6px 6px 0 var(--hi-e),8px 12px 18px #0004}
+.sub{margin:10px 0 0;color:var(--muted);font-size:15px}
+.theme{border:0;background:var(--panel);color:var(--ink);width:44px;height:44px;border-radius:14px;font:inherit;font-size:20px;cursor:pointer;
+  box-shadow:0 4px 0 var(--grid),0 10px 18px #0002;transition:transform .12s,box-shadow .12s}
+.theme:active{transform:translateY(3px);box-shadow:0 1px 0 var(--grid),0 3px 8px #0002}
+.board{background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:26px;padding:18px;
+  box-shadow:0 6px 0 var(--grid),0 30px 60px -20px var(--shadow);transform:rotateX(3deg);transform-style:preserve-3d;transition:transform .2s}
+form{display:grid;gap:12px;margin-bottom:18px}
+.row{display:flex;gap:10px}
+input[type=text]{flex:1;min-width:0;font:inherit;font-size:17px;color:var(--ink);background:var(--field);border:2px solid transparent;border-radius:16px;padding:14px 16px;
+  box-shadow:inset 0 3px 6px #0002,inset 0 -1px 0 #fff4;outline:none}
+input[type=text]:focus-visible{border-color:var(--lo)}
+.add{font:inherit;font-weight:800;font-size:17px;color:#fff;background:var(--hi);border:0;border-radius:16px;padding:0 22px;cursor:pointer;
+  box-shadow:0 1px 0 var(--hi-e),0 2px 0 var(--hi-e),0 3px 0 var(--hi-e),0 4px 0 var(--hi-e),0 5px 0 var(--hi-e),0 6px 0 var(--hi-e),0 12px 16px #0003;
+  transform:translateY(-6px);transition:transform .1s,box-shadow .1s}
+.add:active{transform:translateY(0);box-shadow:0 0 0 var(--hi-e),0 4px 6px #0003}
+button:focus-visible{outline:3px solid var(--lo);outline-offset:3px}
+.pris{display:flex;gap:8px;flex-wrap:wrap}
+.pris label{cursor:pointer}
+.pris input{position:absolute;opacity:0;pointer-events:none}
+.chip{display:inline-block;padding:8px 14px;border-radius:12px;font-weight:600;font-size:14px;color:var(--ink);background:var(--field);
+  box-shadow:0 3px 0 var(--grid);transition:transform .1s,box-shadow .1s}
+.pris input:checked+.chip{color:#fff;transform:translateY(3px);box-shadow:0 0 0 var(--grid)}
+.pris input[value=hi]:checked+.chip{background:var(--hi)}
+.pris input[value=md]:checked+.chip{background:var(--md);color:#3a2800}
+.pris input[value=lo]:checked+.chip{background:var(--lo)}
+.pris input:focus-visible+.chip{outline:3px solid var(--lo);outline-offset:2px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.tabs{display:flex;gap:6px}
+.tab{font:inherit;font-size:14px;font-weight:600;color:var(--muted);background:none;border:0;padding:8px 12px;border-radius:10px;cursor:pointer}
+.tab[aria-pressed=true]{color:var(--ink);background:var(--field);box-shadow:0 2px 0 var(--grid)}
+.count{font-size:14px;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0 0 12px;display:grid;gap:18px;perspective:900px}
+.task{--c:var(--lo);--e:var(--lo-e);--t:8px;position:relative;display:flex;align-items:center;gap:14px;padding:16px 16px 16px 14px;border-radius:18px;
+  background:var(--c);color:#fff;transform-style:preserve-3d;
+  transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(calc(var(--t) * -1));
+  box-shadow:0 1px 0 var(--e),0 2px 0 var(--e),0 3px 0 var(--e),0 4px 0 var(--e),0 5px 0 var(--e),0 6px 0 var(--e),0 7px 0 var(--e),0 8px 0 var(--e),0 calc(8px + 14px) 22px -6px #0000004d;
+  transition:transform .18s ease-out,background .3s,box-shadow .3s}
+.task[data-p=hi]{--c:var(--hi);--e:var(--hi-e)}
+.task[data-p=md]{--c:var(--md);--e:var(--md-e);color:#3a2800}
+.task.done{--c:var(--done);--e:var(--done-e);--t:2px;color:#fff;
+  box-shadow:0 1px 0 var(--e),0 2px 0 var(--e),0 8px 12px -4px #0003}
+.task.done .txt{text-decoration:line-through;opacity:.75}
+.task.in{animation:drop .5s cubic-bezier(.2,1.3,.4,1)}
+.task.out{animation:flip .35s ease-in forwards}
+@keyframes drop{from{opacity:0;transform:translateZ(240px) translateY(-60px) rotateX(50deg)}}
+@keyframes flip{to{opacity:0;transform:rotateX(-80deg) translateY(30px) scale(.9)}}
+.check{flex:none;width:34px;height:34px;border-radius:11px;border:0;background:#ffffff55;color:inherit;font-size:20px;font-weight:800;cursor:pointer;
+  box-shadow:inset 0 2px 4px #0003;transform:translateZ(14px)}
+.txt{flex:1;font-size:18px;font-weight:600;line-height:1.25;overflow-wrap:anywhere;transform:translateZ(10px)}
+.del{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:#00000026;color:inherit;font-size:18px;cursor:pointer;transform:translateZ(14px)}
+.del:hover{background:#0000004d}
+.empty{text-align:center;padding:34px 10px;color:var(--muted);font-size:16px}
+.clear{font:inherit;font-size:14px;font-weight:600;color:var(--muted);background:none;border:0;cursor:pointer;padding:6px 8px;text-decoration:underline}
+@media (max-width:480px){.row{flex-direction:column}.add{padding:14px 22px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.task{transform:translateY(calc(var(--t) * -1))!important}}
+</style>
+</head>
+<body>
+<div class="floor" aria-hidden="true"></div>
+<main>
+  <header>
+    <div>
+      <h1>Stack</h1>
+      <p class="sub">Add a task, press it down when it’s done.</p>
+    </div>
+    <button class="theme" id="theme" type="button" aria-label="Switch light or dark theme">◐</button>
+  </header>
+
+  <section class="board" id="board">
+    <form id="form" autocomplete="off">
+      <div class="row">
+        <input type="text" id="text" placeholder="What needs doing?" maxlength="120" aria-label="New task">
+        <button class="add" type="submit">Add task</button>
+      </div>
+      <div class="pris" role="radiogroup" aria-label="Priority">
+        <label><input type="radio" name="p" value="hi"><span class="chip">High</span></label>
+        <label><input type="radio" name="p" value="md"><span class="chip">Medium</span></label>
+        <label><input type="radio" name="p" value="lo" checked><span class="chip">Low</span></label>
+      </div>
+    </form>
+
+    <div class="bar">
+      <div class="tabs" role="group" aria-label="Filter tasks">
+        <button class="tab" data-f="all" aria-pressed="true" type="button">All</button>
+        <button class="tab" data-f="active" aria-pressed="false" type="button">To do</button>
+        <button class="tab" data-f="done" aria-pressed="false" type="button">Done</button>
+      </div>
+      <span class="count" id="count" aria-live="polite"></span>
+    </div>
+
+    <ul id="list"></ul>
+    <div style="text-align:right"><button class="clear" id="clear" type="button">Clear done tasks</button></div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var KEY="stack-3d-todo", tasks=[], filter="all", newId=null;
+  var list=document.getElementById("list"), form=document.getElementById("form"),
+      input=document.getElementById("text"), count=document.getElementById("count"),
+      board=document.getElementById("board");
+
+  function load(){
+    try{var s=localStorage.getItem(KEY); if(s){tasks=JSON.parse(s)||[];return}}catch(e){}
+    tasks=[
+      {id:1,text:"Plan the week’s top three goals",p:"hi",done:false},
+      {id:2,text:"Reply to the design feedback",p:"md",done:false},
+      {id:3,text:"Water the plants",p:"lo",done:true}
+    ];
+  }
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(tasks))}catch(e){}}
+  function esc(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+  function render(){
+    var shown=tasks.filter(function(t){return filter==="all"||(filter==="done"?t.done:!t.done)});
+    if(!shown.length){
+      list.innerHTML='<li class="empty">'+(tasks.length?"Nothing here. Switch the filter to see other tasks.":"Nothing on the stack. Add your first task above.")+"</li>";
+    }else{
+      list.innerHTML=shown.map(function(t){
+        return '<li class="task'+(t.done?" done":"")+(t.id===newId?" in":"")+'" data-id="'+t.id+'" data-p="'+t.p+'">'+
+          '<button class="check" type="button" data-a="toggle" aria-label="'+(t.done?"Mark as to do":"Mark as done")+': '+esc(t.text)+'">'+(t.done?"✓":"")+'</button>'+
+          '<span class="txt">'+esc(t.text)+'</span>'+
+          '<button class="del" type="button" data-a="del" aria-label="Delete '+esc(t.text)+'">✕</button></li>';
+      }).join("");
+    }
+    newId=null;
+    var left=tasks.filter(function(t){return !t.done}).length;
+    count.textContent=left+(left===1?" task":" tasks")+" left";
+    document.getElementById("clear").style.visibility=tasks.some(function(t){return t.done})?"visible":"hidden";
+    document.querySelectorAll(".tab").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.f===filter)});
+  }
+
+  form.addEventListener("submit",function(e){
+    e.preventDefault();
+    var v=input.value.trim();
+    if(!v){input.focus();return}
+    var p=form.elements.p.value, id=Date.now();
+    tasks.unshift({id:id,text:v,p:p,done:false});
+    newId=id; input.value=""; save(); render(); input.focus();
+  });
+
+  list.addEventListener("click",function(e){
+    var b=e.target.closest("button[data-a]"); if(!b)return;
+    var li=b.closest(".task"), id=+li.dataset.id;
+    if(b.dataset.a==="toggle"){
+      var t=tasks.find(function(x){return x.id===id}); t.done=!t.done; save(); render();
+    }else{
+      li.classList.add("out");
+      setTimeout(function(){tasks=tasks.filter(function(x){return x.id!==id}); save(); render()},300);
+    }
+  });
+
+  document.querySelector(".tabs").addEventListener("click",function(e){
+    var b=e.target.closest(".tab"); if(!b)return; filter=b.dataset.f; render();
+  });
+  document.getElementById("clear").addEventListener("click",function(){
+    tasks=tasks.filter(function(t){return !t.done}); save(); render();
+  });
+
+  /* 3D tilt: each slab leans toward the pointer */
+  list.addEventListener("pointermove",function(e){
+    var li=e.target.closest(".task"); if(!li||e.pointerType==="touch")return;
+    var r=li.getBoundingClientRect(), x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5;
+    li.style.setProperty("--ry",(x*10)+"deg"); li.style.setProperty("--rx",(-y*14)+"deg");
+  });
+  list.addEventListener("pointerout",function(e){
+    var li=e.target.closest(".task"); if(li){li.style.setProperty("--rx","0deg");li.style.setProperty("--ry","0deg")}
+  });
+  /* whole board leans gently with the pointer */
+  document.addEventListener("pointermove",function(e){
+    if(e.pointerType==="touch")return;
+    var x=e.clientX/innerWidth-.5, y=e.clientY/innerHeight-.5;
+    board.style.transform="rotateX("+(3-y*5)+"deg) rotateY("+(x*6)+"deg)";
+  });
+
+  document.getElementById("theme").addEventListener("click",function(){
+    var r=document.documentElement, dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;
+    r.dataset.theme=dark?"light":"dark";
+  });
+
+  load(); render();
+})();
+</script>
+</body>
+</html>
